@@ -317,7 +317,7 @@ ui.audio.addEventListener('click',async () => {
   playNote(380,.12,.08,650);
 });
 
-function buildScene(canvas) {
+function buildWebGLRenderer(canvas) {
   const gl = canvas.getContext('webgl',{alpha:true,antialias:true});
   if (!gl) throw Error('WebGL unavailable');
   const vertices = `
@@ -361,6 +361,145 @@ function buildScene(canvas) {
   const projection = gl.getUniformLocation(program,'uProjection');
   gl.enableVertexAttribArray(position);
   gl.enableVertexAttribArray(tint);
+  const staticBuffer = gl.createBuffer();
+  const activeBuffer = gl.createBuffer();
+  let landCount = 0;
+
+  function drawBuffer(buffer,count) {
+    gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
+    gl.vertexAttribPointer(position,3,gl.FLOAT,false,24,0);
+    gl.vertexAttribPointer(tint,3,gl.FLOAT,false,24,12);
+    gl.drawArrays(gl.TRIANGLES,0,count);
+  }
+
+  return {
+    prepare(land) {
+      landCount=land.length/6;
+      gl.bindBuffer(gl.ARRAY_BUFFER,staticBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(land),gl.STATIC_DRAW);
+    },
+    render(objects,view) {
+      gl.viewport(0,0,view.width,view.height);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.uniform2f(projection,view.scaleX,view.scaleY);
+      gl.uniform3f(camera,view.x,view.y,view.z);
+      drawBuffer(staticBuffer,landCount);
+      gl.bindBuffer(gl.ARRAY_BUFFER,activeBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(objects),gl.DYNAMIC_DRAW);
+      drawBuffer(activeBuffer,objects.length/6);
+    }
+  };
+}
+
+function buildCanvasRenderer(canvas) {
+  const context = canvas.getContext('2d',{alpha:false});
+  if (!context) throw Error('Canvas unavailable');
+  const near = .6;
+  const far = 355;
+  let terrain;
+  let sky;
+  let skyWidth = 0;
+  let skyHeight = 0;
+
+  function drawSky(width,height) {
+    if (skyWidth === width && skyHeight === height) return;
+    skyWidth=width;
+    skyHeight=height;
+    sky=document.createElement('canvas');
+    sky.width=width;
+    sky.height=height;
+    const layer=sky.getContext('2d');
+    const atmosphere=layer.createLinearGradient(0,0,0,height*.67);
+    atmosphere.addColorStop(0,'#4b8491');
+    atmosphere.addColorStop(.53,'#83b3a9');
+    atmosphere.addColorStop(1,'#b8cdb0');
+    layer.fillStyle=atmosphere;
+    layer.fillRect(0,0,width,height);
+    const sunX=width*.76,sunY=height*.17,r=height*.135;
+    const glow=layer.createRadialGradient(sunX,sunY,0,sunX,sunY,r);
+    glow.addColorStop(0,'#ffffd6d9');
+    glow.addColorStop(.41,'#fff0bb62');
+    glow.addColorStop(1,'#fff0bb00');
+    layer.fillStyle=glow;
+    layer.fillRect(sunX-r,sunY-r,r*2,r*2);
+    layer.beginPath();
+    layer.arc(sunX,sunY,r*.28,0,Math.PI*2);
+    layer.fillStyle='#faf4ce';
+    layer.fill();
+    for (let i=0;i<11;i++) {
+      const x=width*(.06 + (i*.181)%1);
+      const y=height*(.09 + (i*.047)% .2);
+      layer.beginPath();
+      layer.ellipse(x,y,width*(.025+i%4*.018),height*(.003+i%3*.002),-.08,0,Math.PI*2);
+      layer.fillStyle=i%2 ? '#cde1c858' : '#ece9ca68';
+      layer.fill();
+    }
+  }
+
+  function triangles(mesh,view,out) {
+    const halfW=view.width/2,halfH=view.height/2;
+    for (let i=0;i<mesh.length;i+=18) {
+      const z0=mesh[i+2]-view.z,z1=mesh[i+8]-view.z,z2=mesh[i+14]-view.z;
+      if (Math.min(z0,z1,z2)>far || Math.max(z0,z1,z2)<=near) continue;
+      const vertices=[
+        [mesh[i]-view.x,mesh[i+1]-view.y,z0],
+        [mesh[i+6]-view.x,mesh[i+7]-view.y,z1],
+        [mesh[i+12]-view.x,mesh[i+13]-view.y,z2]
+      ];
+      const clipped=[];
+      for (let j=0;j<3;j++) {
+        const a=vertices[j],b=vertices[(j+1)%3];
+        if (a[2]>=near) clipped.push(a);
+        if ((a[2]<near)!==(b[2]<near)) {
+          const t=(near-a[2])/(b[2]-a[2]);
+          clipped.push([a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1]),near]);
+        }
+      }
+      const screen=clipped.map(([x,y,z])=>[halfW*(1+x*view.scaleX/z),halfH*(1-(y/z+.065)*view.scaleY)]);
+      if (screen.every(p=>p[0]<0) || screen.every(p=>p[0]>view.width) ||
+          screen.every(p=>p[1]<0) || screen.every(p=>p[1]>view.height)) continue;
+      const depth=(Math.max(near,z0)+Math.max(near,z1)+Math.max(near,z2))/3;
+      const t=clamp((depth-18)/337,0,1);
+      const fog=t*t*(3-2*t)*.93;
+      const color=[.55,.71,.64].map((hue,k)=>Math.min(255,Math.round(255*(mesh[i+3+k]*(1-fog)+hue*fog))));
+      out.push({screen,depth,color:'rgb('+color.join(',')+')'});
+    }
+  }
+
+  return {
+    prepare(land) { terrain=land; },
+    render(objects,view) {
+      drawSky(view.width,view.height);
+      context.drawImage(sky,0,0);
+      const faces=[];
+      triangles(terrain,view,faces);
+      triangles(objects,view,faces);
+      faces.sort((a,b)=>b.depth-a.depth);
+      for (const {screen,color} of faces) {
+        context.beginPath();
+        context.moveTo(...screen[0]);
+        for (let i=1;i<screen.length;i++) context.lineTo(...screen[i]);
+        context.closePath();
+        context.fillStyle=color;
+        context.fill();
+        context.strokeStyle=color;
+        context.lineWidth=.65;
+        context.stroke();
+      }
+    }
+  };
+}
+
+function buildScene(canvas) {
+  let renderer;
+  try {
+    renderer=buildWebGLRenderer(canvas);
+  } catch {
+    const fallback=canvas.cloneNode(false);
+    canvas.replaceWith(fallback);
+    canvas=fallback;
+    renderer=buildCanvasRenderer(canvas);
+  }
   const land = [];
   const objects = [];
   const triangle = (target,a,b,c,color) => target.push(...a,...color,...b,...color,...c,...color);
@@ -415,17 +554,7 @@ function buildScene(canvas) {
     quad(land,[x-2,-11.15,z],[x+5,-11.15,z],[x+6,-11.15,z+.5],[x-1,-11.15,z+.5],[.46,.66,.58]);
   }
 
-  const staticBuffer = gl.createBuffer();
-  const activeBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER,staticBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(land),gl.STATIC_DRAW);
-
-  function drawBuffer(buffer,count) {
-    gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
-    gl.vertexAttribPointer(position,3,gl.FLOAT,false,24,0);
-    gl.vertexAttribPointer(tint,3,gl.FLOAT,false,24,12);
-    gl.drawArrays(gl.TRIANGLES,0,count);
-  }
+  renderer.prepare(land);
 
   function ring(gate,isTarget) {
     const color = isTarget ? [.76,1,.41] : [.59,.82,.77];
@@ -486,12 +615,6 @@ function buildScene(canvas) {
         canvas.width=width;
         canvas.height=height;
       }
-      gl.viewport(0,0,width,height);
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      const scale=1.63;
-      gl.uniform2f(projection,Math.min(1.39,scale*height/width),scale);
-      gl.uniform3f(camera,state.x*.68,state.y*.78+3.6,state.z-12.7);
-      drawBuffer(staticBuffer,land.length/6);
       objects.length=0;
       if (state.mode === 'ready') {
         ring({x:7,y:1.8,z:42,radius:5.7},true);
@@ -501,9 +624,11 @@ function buildScene(canvas) {
         for (let i=state.index;i<Math.min(state.index+5,gates.length);i++) ring(gates[i],i===state.index);
       }
       drone(time);
-      gl.bindBuffer(gl.ARRAY_BUFFER,activeBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(objects),gl.DYNAMIC_DRAW);
-      drawBuffer(activeBuffer,objects.length/6);
+      const scale=1.63;
+      renderer.render(objects,{
+        width,height,scaleX:Math.min(1.39,scale*height/width),scaleY:scale,
+        x:state.x*.68,y:state.y*.78+3.6,z:state.z-12.7
+      });
     }
   };
 }
@@ -514,7 +639,7 @@ try {
 } catch {
   ui.tag.textContent='3D 그래픽 연결 실패';
   ui.title.textContent='비행을 열 수 없어요';
-  ui.detail.textContent='WebGL을 사용할 수 있는 브라우저에서 열어 주세요.';
+  ui.detail.textContent='그래픽을 초기화할 수 없습니다. 브라우저를 새로고침해 주세요.';
   ui.start.disabled=true;
 }
 
