@@ -395,7 +395,8 @@ function buildCanvasRenderer(canvas) {
   const context = canvas.getContext('2d',{alpha:false});
   if (!context) throw Error('Canvas unavailable');
   const near = .6;
-  const far = 355;
+  const far = 310;
+  const sectionSize = 40;
   let terrain;
   let sky;
   let skyWidth = 0;
@@ -467,12 +468,24 @@ function buildCanvasRenderer(canvas) {
   }
 
   return {
-    prepare(land) { terrain=land; },
+    pixelRatio: 1,
+    prepare(land) {
+      terrain=new Map();
+      for (let i=0;i<land.length;i+=18) {
+        const depth=Math.min(land[i+2],land[i+8],land[i+14]);
+        const key=Math.floor(depth/sectionSize);
+        if (!terrain.has(key)) terrain.set(key,[]);
+        terrain.get(key).push(...land.slice(i,i+18));
+      }
+    },
     render(objects,view) {
       drawSky(view.width,view.height);
       context.drawImage(sky,0,0);
       const faces=[];
-      triangles(terrain,view,faces);
+      for (let key=Math.floor((view.z-20)/sectionSize);key<=Math.floor((view.z+far)/sectionSize);key++) {
+        const section=terrain.get(key);
+        if (section) triangles(section,view,faces);
+      }
       triangles(objects,view,faces);
       faces.sort((a,b)=>b.depth-a.depth);
       for (const {screen,color} of faces) {
@@ -482,9 +495,6 @@ function buildCanvasRenderer(canvas) {
         context.closePath();
         context.fillStyle=color;
         context.fill();
-        context.strokeStyle=color;
-        context.lineWidth=.65;
-        context.stroke();
       }
     }
   };
@@ -608,7 +618,7 @@ function buildScene(canvas) {
 
   return {
     render(time) {
-      const pixelRatio=Math.min(1.65,devicePixelRatio || 1);
+      const pixelRatio=Math.min(renderer.pixelRatio ?? 1.65,devicePixelRatio || 1);
       const width=Math.max(1,Math.round(canvas.clientWidth*pixelRatio));
       const height=Math.max(1,Math.round(canvas.clientHeight*pixelRatio));
       if (canvas.width!==width || canvas.height!==height) {
@@ -646,13 +656,23 @@ try {
 if (scene) {
   let last=performance.now();
   let frameTime=0;
+  let lastDraw=0;
+  let lastMode;
   const quiet=matchMedia('(prefers-reduced-motion: reduce)').matches;
   function frame(now) {
-    const dt=clamp((now-last)/1000,0,.04);
+    const dt=clamp((now-last)/1000,0,.25);
     last=now;
-    if (state.mode==='running') step(dt);
-    if (state.mode==='running' || (state.mode==='ready' && !quiet)) frameTime+=dt;
-    scene.render(frameTime);
+    const moving=state.mode==='running' || (state.mode==='ready' && !quiet);
+    if (state.mode==='running') {
+      const count=Math.max(1,Math.ceil(dt/.035));
+      for (let i=0;i<count && state.mode==='running';i++) step(dt/count);
+    }
+    if (moving) frameTime+=dt;
+    if (state.mode!==lastMode || now-lastDraw>=1000/30) {
+      scene.render(frameTime);
+      lastDraw=now;
+      lastMode=state.mode;
+    }
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
