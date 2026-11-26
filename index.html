@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0c111b">
+  <title>밤의 차선</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: system-ui, sans-serif;
+      color: #eff6ff;
+      background: #0c111b;
+      --accent: #c7ffa5;
+      --muted: #aab7cc;
+      --line: #293548;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { width: min(100% - 32px, 990px); margin: 0 auto; padding: 26px 0; }
+    header { display: flex; justify-content: space-between; align-items: end; gap: 14px; margin-bottom: 14px; }
+    h1, h2, p { margin: 0; }
+    h1 { font-size: clamp(26px, 5vw, 46px); letter-spacing: -.09em; line-height: 1.05; }
+    .stats { display: flex; gap: 22px; text-align: right; font-variant-numeric: tabular-nums; padding-bottom: 2px; }
+    .stats span, .hint { color: var(--muted); font-size: 13px; }
+    .stats b { display: block; font: 700 clamp(17px, 3.4vw, 24px) ui-monospace, monospace; margin-top: 4px; white-space: nowrap; }
+    #score { color: var(--accent); }
+    .stage { position: relative; aspect-ratio: 1000 / 574; isolation: isolate; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: #17283e; }
+    canvas { display: block; width: 100%; height: 100%; }
+    .overlay { position: absolute; inset: 0; display: grid; place-items: center; padding: 12px; background: #09101f52; }
+    .overlay[hidden] { display: none; }
+    .panel { background: #101928eb; border: 1px solid #34435b; padding: clamp(14px, 3vw, 30px); width: min(100%, 350px); text-align: center; border-radius: 14px; box-shadow: 0 14px 55px #090d1e85; }
+    .panel h2 { font-size: clamp(20px, 4vw, 35px); letter-spacing: -.08em; }
+    .panel p { color: var(--muted); font-size: clamp(12px, 2.4vw, 15px); margin: 8px 0 16px; line-height: 1.5; }
+    button { cursor: pointer; font: inherit; touch-action: manipulation; }
+    button:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+    .primary { background: var(--accent); color: #182313; border: 0; border-radius: 8px; padding: 9px 24px; font-weight: 760; }
+    .primary:hover { background: #ddffc7; }
+    .controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 13px; }
+    .keys { display: flex; gap: 7px; }
+    .keys button { border: 1px solid var(--line); color: #eff6ff; background: #151e2b; border-radius: 8px; min-width: 45px; min-height: 40px; padding: 0 12px; }
+    .keys button:hover { background: #253449; }
+    .keys button:disabled { opacity: .55; cursor: default; }
+    @media (max-width: 540px) {
+      main { padding-top: 22px; }
+      .stats { gap: 12px; }
+      .stage { aspect-ratio: 4 / 4.5; border-radius: 12px; }
+      canvas { position: absolute; width: 172%; left: 50%; transform: translateX(-50%); }
+      .controls { justify-content: center; }
+      .hint { text-align: center; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>밤의 차선</h1>
+      <div class="stats">
+        <div><span>거리</span><b id="score">0 m</b></div>
+        <div><span>최고 기록</span><b id="best">0 m</b></div>
+      </div>
+    </header>
+    <div class="stage">
+      <canvas id="game" width="1000" height="574" aria-label="야간 도로 자동차 게임"></canvas>
+      <div class="overlay" id="overlay">
+        <div class="panel">
+          <h2 id="message" aria-live="polite">야간 주행</h2>
+          <p id="detail">차선을 바꿔 앞차를 피하고 최대한 멀리 가세요.</p>
+          <button class="primary" id="start" type="button">주행 시작</button>
+        </div>
+      </div>
+    </div>
+    <div class="controls">
+      <p class="hint">← → 또는 A / D로 이동 · P로 일시 정지</p>
+      <div class="keys">
+        <button id="left" type="button" aria-label="왼쪽 차선">←</button>
+        <button id="right" type="button" aria-label="오른쪽 차선">→</button>
+        <button id="pause" type="button" disabled>일시 정지</button>
+      </div>
+    </div>
+  </main>
+  <script>
+    const get = (id) => document.getElementById(id);
+    const canvas = get('game');
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const center = width / 2;
+    const horizon = 161;
+    const playerDepth = .875;
+    const recordKey = 'night-lanes-best-distance';
+    const trafficColors = ['#e68170', '#9bbdf5', '#c1adc9', '#e7bf73'];
+
+    function readBest() {
+      try {
+        return Math.max(0, Number(localStorage.getItem(recordKey)) || 0);
+      } catch {
+        return 0;
+      }
+    }
+
+    const game = {
+      mode: 'ready',
+      lane: 1,
+      position: 1,
+      distance: 0,
+      best: readBest(),
+      roadOffset: 0,
+      spawnIn: 0,
+      traffic: []
+    };
+
+    const buildings = Array.from({length: 57}, (_, i) => ({
+      x: i * 18 + (i * 13 % 11) - 12,
+      w: 10 + (i * 19 % 22),
+      h: 8 + (i * 37 % 69),
+      color: i % 3
+    }));
+
+    function polygon(points, fill) {
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function line(points, stroke, lineWidth = 1) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = lineWidth;
+      ctx.beginPath();
+      points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+      ctx.stroke();
+    }
+
+    function roadPoint(fraction, depth) {
+      const perspective = depth ** 1.75;
+      return [center + fraction * (30 + 369 * perspective), horizon + (height - horizon) * perspective];
+    }
+
+    function lanePoint(lane, depth) {
+      return roadPoint((lane - 1) * 2 / 3, depth);
+    }
+
+    function ribbon(from, to, near, far, color) {
+      polygon([roadPoint(from, near), roadPoint(to, near), roadPoint(to, far), roadPoint(from, far)], color);
+    }
+
+    function drawSky() {
+      const sky = ctx.createLinearGradient(0, 0, 0, horizon + 30);
+      sky.addColorStop(0, '#111d34');
+      sky.addColorStop(.65, '#283a57');
+      sky.addColorStop(1, '#6b596e');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, width, height);
+
+      for (let i = 0; i < 73; i++) {
+        const x = (i * 157 + 13) % width;
+        const y = 9 + i * 47 % 110;
+        ctx.fillStyle = ['#8194b0', '#b9c9dc', '#50637f'][i % 3];
+        ctx.fillRect(x, y, i % 9 === 0 ? 2 : 1, 1);
+      }
+
+      const halo = ctx.createRadialGradient(699, 66, 20, 699, 66, 69);
+      halo.addColorStop(0, '#ffd0ae66');
+      halo.addColorStop(1, '#ffd0ae00');
+      ctx.fillStyle = halo;
+      ctx.fillRect(630, 0, 138, 136);
+      ctx.fillStyle = '#ffe2c5';
+      ctx.beginPath();
+      ctx.arc(699, 66, 25, 0, 2 * Math.PI);
+      ctx.fill();
+
+      polygon([[0, 140], [107, 112], [236, 153], [373, 120], [491, 148], [610, 110], [752, 144], [874, 109], [1000, 143], [1000, 188], [0, 188]], '#293851');
+      buildings.forEach(({x, w, h, color}, i) => {
+        const top = horizon - h;
+        ctx.fillStyle = ['#16243a', '#20304a', '#1b2940'][color];
+        ctx.fillRect(x, top, w, h + 10);
+        if (i % 4 === 0) {
+          ctx.fillRect(x + w / 2, top - 10, 1, 10);
+          ctx.fillStyle = '#d89589';
+          ctx.fillRect(x + w / 2, top - 10, 2, 1);
+        }
+        for (let row = 0; row < h - 8; row += 7) {
+          for (let col = 4; col < w - 2; col += 6) {
+            if ((row + col + i) % 5 < 3) {
+              ctx.fillStyle = (row + i) % 7 < 2 ? '#e6b68b' : '#5c809d';
+              ctx.fillRect(x + col, top + 5 + row, 2, 2);
+            }
+          }
+        }
+      });
+    }
+
+    function drawRoad() {
+      const ground = ctx.createLinearGradient(0, horizon, 0, height);
+      ground.addColorStop(0, '#263247');
+      ground.addColorStop(1, '#111927');
+      ctx.fillStyle = ground;
+      ctx.fillRect(0, horizon + 2, width, height);
+      ribbon(-1.18, 1.18, 0, 1, '#343a4c');
+      const asphalt = ctx.createLinearGradient(0, horizon, 0, height);
+      asphalt.addColorStop(0, '#24324a');
+      asphalt.addColorStop(1, '#1b2434');
+      ribbon(-1, 1, 0, 1, asphalt);
+      for (const side of [-1, 1]) {
+        line([roadPoint(side, 0), roadPoint(side, 1)], '#91a6bb', 2);
+        line([roadPoint(side * 1.18, 0), roadPoint(side * 1.18, 1)], '#58677e', 2);
+      }
+
+      for (let i = 0; i < 17; i++) {
+        const depth = (i / 17 + game.roadOffset) % 1;
+        const end = Math.min(1, depth + .025);
+        for (const laneLine of [-1 / 3, 1 / 3]) {
+          ribbon(laneLine - .005, laneLine + .005, depth, end, '#9aa9be');
+        }
+      }
+
+      const posts = Array.from({length: 8}, (_, i) => (i / 8 + game.roadOffset) % 1).sort((a, b) => a - b);
+      for (const depth of posts) {
+        for (const side of [-1, 1]) {
+          const [x, y] = roadPoint(side * 1.31, depth);
+          const scale = depth ** 1.35;
+          const top = y - 145 * scale;
+          line([[x, y], [x, top], [x - side * 19 * scale, top]], '#43566d', Math.max(1, 4 * scale));
+          ctx.fillStyle = '#ffdeaa';
+          ctx.fillRect(x - side * 18 * scale - 4 * scale, top, 8 * scale, 3 * scale + 1);
+        }
+      }
+    }
+
+    function drawCar(lane, depth, color, player = false) {
+      const [x, y] = lanePoint(lane, depth);
+      const s = .10 + .96 * depth ** 1.8;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(s, s);
+      if (player) {
+        const beam = ctx.createLinearGradient(0, -160, 0, -25);
+        beam.addColorStop(0, '#d7ffbe00');
+        beam.addColorStop(1, '#d7ffbe22');
+        polygon([[-104, -160], [104, -160], [49, -25], [-49, -25]], beam);
+      }
+      ctx.fillStyle = '#0d1220a8';
+      ctx.beginPath();
+      ctx.ellipse(0, -2, 67, 13, 0, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.fillStyle = '#0d1522';
+      ctx.fillRect(-52, -24, 16, 26);
+      ctx.fillRect(36, -24, 16, 26);
+      polygon([[-53, -11], [-55, -35], [-45, -48], [-28, -54], [-20, -76], [22, -76], [36, -54], [47, -47], [55, -36], [53, -11]], color);
+      polygon([[-24, -55], [-15, -70], [18, -70], [27, -55]], '#26354e');
+      line([[-42, -45], [43, -45]], '#ffffff57', 2);
+      ctx.fillStyle = '#20283a';
+      ctx.fillRect(-49, -29, 98, 17);
+      ctx.fillStyle = '#fc605d';
+      ctx.fillRect(-46, -27, 25, 7);
+      ctx.fillRect(22, -27, 25, 7);
+      ctx.fillStyle = '#ffd2af';
+      ctx.fillRect(-44, -26, 21, 2);
+      ctx.fillRect(24, -26, 21, 2);
+      ctx.fillStyle = '#d1dcea';
+      ctx.fillRect(-10, -21, 20, 6);
+      ctx.restore();
+    }
+
+    function draw() {
+      drawSky();
+      drawRoad();
+      const traffic = game.mode === 'ready'
+        ? [{lane: 0, depth: .68, color: trafficColors[0]}, {lane: 2, depth: .51, color: trafficColors[1]}]
+        : game.traffic;
+      const cars = [...traffic, {lane: game.position, depth: playerDepth, color: '#b9ee99', player: true}];
+      cars.sort((a, b) => a.depth - b.depth).forEach(({lane, depth, color, player}) => drawCar(lane, depth, color, player));
+    }
+
+    function updateScore() {
+      get('score').textContent = Math.floor(game.distance) + ' m';
+      get('best').textContent = game.best + ' m';
+    }
+
+    function setMode(mode) {
+      game.mode = mode;
+      const overlay = get('overlay');
+      overlay.hidden = mode === 'running';
+      get('pause').disabled = mode !== 'running' && mode !== 'paused';
+      get('pause').textContent = mode === 'paused' ? '계속' : '일시 정지';
+      get('left').disabled = mode !== 'running';
+      get('right').disabled = mode !== 'running';
+      if (mode === 'paused' || mode === 'over') {
+        get('message').textContent = mode === 'over' ? '충돌했습니다' : '일시 정지';
+        get('detail').textContent = mode === 'over'
+          ? Math.floor(game.distance) + ' m를 주행했습니다.'
+          : '준비되면 주행을 이어가세요.';
+        get('start').textContent = mode === 'over' ? '다시 시작' : '계속 주행';
+        get('start').focus({preventScroll: true});
+      }
+    }
+
+    function start() {
+      if (game.mode === 'paused') {
+        setMode('running');
+        return;
+      }
+      Object.assign(game, {lane: 1, position: 1, distance: 0, roadOffset: 0, spawnIn: .25, traffic: []});
+      updateScore();
+      setMode('running');
+    }
+
+    function move(direction) {
+      if (game.mode === 'running') game.lane = Math.max(0, Math.min(2, game.lane + direction));
+    }
+
+    function pause() {
+      if (game.mode === 'paused') setMode('running');
+      else if (game.mode === 'running') setMode('paused');
+    }
+
+    function finish() {
+      const distance = Math.floor(game.distance);
+      if (distance > game.best) {
+        game.best = distance;
+        try {
+          localStorage.setItem(recordKey, String(distance));
+        } catch {
+          // The current session can still show the best distance.
+        }
+      }
+      updateScore();
+      setMode('over');
+    }
+
+    function advance(dt) {
+      const speed = 43 + Math.min(95, game.distance / 18);
+      game.distance += speed * dt;
+      game.roadOffset = (game.roadOffset + dt * speed / 136) % 1;
+      game.position += (game.lane - game.position) * Math.min(1, dt * 16);
+      game.spawnIn -= dt;
+
+      if (game.spawnIn <= 0) {
+        const lane = Math.floor(Math.random() * 3);
+        const color = trafficColors[Math.floor(Math.random() * trafficColors.length)];
+        game.traffic.push({lane, color, depth: 0});
+        game.spawnIn = Math.max(.65, 1.35 - game.distance / 1500);
+      }
+
+      for (const car of game.traffic) {
+        car.depth += dt * speed / 136;
+        if (Math.abs(car.depth - playerDepth) < .06 && Math.abs(car.lane - game.position) < .45) {
+          finish();
+          return;
+        }
+      }
+      game.traffic = game.traffic.filter(({depth}) => depth <= 1);
+      updateScore();
+    }
+
+    get('start').addEventListener('click', start);
+    get('left').addEventListener('click', () => move(-1));
+    get('right').addEventListener('click', () => move(1));
+    get('pause').addEventListener('click', pause);
+    document.addEventListener('keydown', (event) => {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (['arrowleft', 'a', 'arrowright', 'd', 'p'].includes(key)) event.preventDefault();
+      if (event.repeat) return;
+      if (key === 'arrowleft' || key === 'a') move(-1);
+      if (key === 'arrowright' || key === 'd') move(1);
+      if (key === 'p') pause();
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && game.mode === 'running') setMode('paused');
+    });
+
+    let last = performance.now();
+    function frame(now) {
+      const dt = Math.min((now - last) / 1000, .045);
+      last = now;
+      if (game.mode === 'running') advance(dt);
+      draw();
+      requestAnimationFrame(frame);
+    }
+
+    setMode('ready');
+    updateScore();
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
