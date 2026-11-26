@@ -25,12 +25,7 @@
   button:disabled { cursor: default; }
   [hidden] { display: none !important; }
   main { width: min(1180px, 100% - 44px); margin: 0 auto; padding: 28px 0 22px; }
-  .top { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 20px; }
-  .brand { display: flex; gap: 12px; align-items: center; }
-  .mark { width: 42px; height: 42px; border-radius: 10px; border: 1px solid #744177; background: #311d43; display: grid; place-content: center; }
-  .mark::before { content: ""; width: 17px; height: 20px; border-inline: 3px solid var(--pink); transform: skew(-24deg); box-shadow: 4px 0 12px #fa55ad48; }
-  .name { font-size: 20px; font-weight: 780; letter-spacing: -.055em; }
-  .edition { color: var(--muted); text-transform: uppercase; font: 700 10px var(--mono); letter-spacing: .22em; margin-top: 3px; }
+  .top { display: flex; justify-content: flex-end; margin-bottom: 20px; }
   .sound { color: #dbd5eb; background: #1b152b; border: 1px solid #443452; border-radius: 9px; padding: 8px 12px; font-size: 12px; font-weight: 650; white-space: nowrap; }
   .sound[aria-pressed="true"] { color: var(--ice); border-color: #547988; }
   .layout { display: grid; grid-template-columns: minmax(0, 1fr) 235px; gap: 16px; align-items: stretch; }
@@ -110,10 +105,6 @@
 <body>
 <main>
   <header class="top">
-    <div class="brand">
-      <span class="mark" aria-hidden="true"></span>
-      <div><div class="name">밤의 차선</div><div class="edition">Neon Run</div></div>
-    </div>
     <button class="sound" id="sound" type="button" aria-pressed="false">소리 꺼짐</button>
   </header>
   <div class="layout">
