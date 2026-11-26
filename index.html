@@ -3,60 +3,64 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#122523">
-<title>스카이 서킷</title>
+<meta name="theme-color" content="#131c2c">
+<title>스카이 서킷 · 애프터버너</title>
 <style>
-  :root{color-scheme:dark;font-family:system-ui,sans-serif;background:#101c1b;color:#eef7ee;--ink:#101f1c;--mint:#ccf478;--text:#a6bbb1;--line:#354943;--mono:ui-monospace,monospace}
+  :root{color-scheme:dark;font-family:system-ui,sans-serif;background:#0c1320;color:#ecf4ff;--ink:#111a29;--mint:#ffd17e;--text:#a9b8cb;--line:#35445a;--mono:ui-monospace,monospace}
   *{box-sizing:border-box}
-  body{margin:0;min-height:100svh;background:radial-gradient(ellipse at 90% 0%,#243b33,#101c1b 62%)}
+  body{margin:0;min-height:100svh;background:radial-gradient(ellipse at 90% 0%,#243958,#0c1320 62%)}
   [hidden]{display:none!important}
   main{width:min(1200px,100% - 38px);margin:auto;padding:22px 0 18px}
   header{display:flex;align-items:center;justify-content:flex-end;margin-bottom:13px}
   h1,h2,p{margin:0}
   .layout{display:grid;grid-template-columns:minmax(0,1fr) 206px;gap:13px}
-  .stage{position:relative;isolation:isolate;overflow:hidden;aspect-ratio:16/9;border:1px solid #53665c;border-radius:14px;background:linear-gradient(#548d91,#95bfad 58%,#bad0a5)}
+  .stage{position:relative;isolation:isolate;overflow:hidden;aspect-ratio:16/9;border:1px solid #506581;border-radius:14px;background:linear-gradient(#5380a3,#93aebc 58%,#c3cbc6)}
   canvas{display:block;width:100%;height:100%;outline:none}
-  .overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:clamp(22px,5.5vw,66px);background:linear-gradient(90deg,#132822f5 0%,#172c24df 28%,#1429218c 53%,#14292100 87%)}
-  .overlay[data-mode="crashed"],.overlay[data-mode="done"],.overlay[data-mode="paused"]{background:linear-gradient(90deg,#132822fa 2%,#132822cc 52%,#13282240)}
-  .eyebrow{color:#dbfcaa;font:760 11px var(--mono);letter-spacing:.16em;margin-bottom:10px}
+  .overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:clamp(22px,5.5vw,66px);background:linear-gradient(90deg,#101a2df5 0%,#17243adf 28%,#1326378c 53%,#13263700 87%)}
+  .overlay[data-mode="crashed"],.overlay[data-mode="done"],.overlay[data-mode="paused"]{background:linear-gradient(90deg,#101a2dfa 2%,#101a2dcc 52%,#101a2d40)}
+  .eyebrow{color:#ffda91;font:760 11px var(--mono);letter-spacing:.16em;margin-bottom:10px}
   h1{font-size:clamp(37px,6.4vw,82px);font-weight:850;line-height:1.04;letter-spacing:-.085em;text-wrap:balance}
-  h1 span{display:block;color:#d1f686}
-  .detail{font-size:clamp(13px,1.6vw,16px);line-height:1.64;color:#e1eae0;max-width:274px;margin:15px 0 22px;word-break:keep-all}
+  h1 span{display:block;color:#ffd17e}
+  .detail{font-size:clamp(13px,1.6vw,16px);line-height:1.64;color:#dbe7f3;max-width:274px;margin:15px 0 22px;word-break:keep-all}
   button{font:inherit;cursor:pointer;touch-action:none}
-  button:focus-visible{outline:2px solid #f4ffc2;outline-offset:3px}
-  .start{border:0;background:var(--mint);color:#19301e;font-weight:850;padding:10px 20px;border-radius:8px;box-shadow:0 4px 22px #a2ed5444}
-  .start:hover{background:#e2ffac}
-  .muted-btn,.controls button{border:1px solid var(--line);border-radius:8px;background:#1d302a;color:#e8f4e7;font-size:12px;font-weight:750;padding:8px 12px;min-height:36px}
+  button:focus-visible{outline:2px solid #ffdf9e;outline-offset:3px}
+  .start{border:0;background:var(--mint);color:#252131;font-weight:850;padding:10px 20px;border-radius:8px;box-shadow:0 4px 22px #ffba5344}
+  .start:hover{background:#ffe3a5}
+  .muted-btn,.controls button{border:1px solid var(--line);border-radius:8px;background:#1c2a3e;color:#e7f1fb;font-size:12px;font-weight:750;padding:8px 12px;min-height:36px}
   button:disabled{opacity:.58;cursor:default}
-  .muted-btn[aria-pressed="true"]{border-color:#8ca866;color:var(--mint)}
+  .muted-btn[aria-pressed="true"]{border-color:#82a0bd;color:var(--mint)}
   aside{display:flex;flex-direction:column;gap:11px}
-  .card{border:1px solid var(--line);background:linear-gradient(155deg,#203630,#162822);border-radius:11px;padding:13px}
+  .card{border:1px solid var(--line);background:linear-gradient(155deg,#20324a,#131e30);border-radius:11px;padding:13px}
   .card h2{font-size:12px;line-height:1.1;border-bottom:1px solid var(--line);padding-bottom:10px}
   .gate-count{font:850 34px/1.15 var(--mono);letter-spacing:-.07em;color:var(--mint);margin-top:9px}
   .row{display:flex;justify-content:space-between;gap:7px;margin-top:10px;font-size:12px;color:var(--text)}
-  .row b{font-family:var(--mono);color:#edf9ed;text-align:right}
-  .health{display:flex;gap:4px}
-  .health i{height:9px;width:15px;border-radius:2px;background:#c6ef7a}
-  .health i.off{background:#48574c}
-  .meter{height:5px;border-radius:4px;background:#344a40;margin:8px 0 14px;overflow:hidden}
+  .row b{font-family:var(--mono);color:#f1f6fe;text-align:right}
+  .meter{height:5px;border-radius:4px;background:#354760;margin:8px 0 14px;overflow:hidden}
   .meter i{display:block;width:0;height:100%;background:var(--mint)}
   .guide{flex:1}
-  .guide p{font-size:12px;color:#b9c9bd;line-height:1.6;margin-top:9px;word-break:keep-all}
+  .guide p{font-size:12px;color:#bccadb;line-height:1.6;margin-top:9px;word-break:keep-all}
   .controls{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
-  .controls p{font-size:12px;color:#b6c9be}
+  .controls p{font-size:12px;color:#bbc9da}
   .buttons{display:flex;gap:6px}
   .controls button{min-width:37px}
-  .controls button.held{background:#48683b;color:#f1ffdb}
-  kbd{font:700 11px var(--mono);padding:2px 5px;border:1px solid #435850;border-radius:4px;color:#f0f5e9}
-  .feedback{pointer-events:none;position:absolute;top:12%;left:50%;transform:translateX(-50%);max-width:90%;white-space:nowrap;background:#192c22ef;color:#e1ffac;border:1px solid #ddeba64d;padding:7px 12px;border-radius:6px;font-weight:800;font-size:13px}
-  .feedback.miss{color:#ffccaa}
+  .controls button.held{background:#5c4935;color:#fff0d9}
+  kbd{font:700 11px var(--mono);padding:2px 5px;border:1px solid #405572;border-radius:4px;color:#eef5ff}
+  .feedback{pointer-events:none;position:absolute;top:12%;left:50%;transform:translateX(-50%);max-width:90%;white-space:nowrap;background:#172438ef;color:#ffda92;border:1px solid #ffd8914d;padding:7px 12px;border-radius:6px;font-weight:800;font-size:13px}
+  #burst{pointer-events:none;position:absolute;inset:0;overflow:hidden;opacity:0}
+  .stage[data-flight="running"] #burst{opacity:.32}
+  .stage[data-boost="true"] #burst{opacity:.83}
+  #burst i{position:absolute;left:50%;top:45%;width:48%;height:2px;transform-origin:left center;transform:rotate(var(--angle));overflow:hidden}
+  #burst i::after{content:"";display:block;width:35%;height:100%;background:linear-gradient(90deg,transparent,#d5eeff91);animation:trail .48s linear infinite;animation-delay:var(--delay)}
+  .stage[data-boost="true"] #burst i::after{animation-duration:.26s}
+  @keyframes trail{from{transform:translateX(90%);opacity:0}40%{opacity:0}to{transform:translateX(300%);opacity:1}}
+  @media(prefers-reduced-motion:reduce){#burst{display:none}}
   @media(max-width:760px){
     main{width:calc(100% - 22px);padding-top:12px;display:flex;flex-direction:column}
     .layout{display:contents}
     .stage{aspect-ratio:1.25;min-height:270px}
     header{margin-bottom:10px}
     .overlay{padding:21px}
-    .overlay h1{font-size:clamp(36px,10vw,52px)}
+    .overlay h1{font-size:clamp(30px,8.9vw,50px)}
     .detail{margin:9px 0 13px;max-width:200px}
     .eyebrow{margin-bottom:6px}
     aside{order:2;margin-top:9px}
@@ -68,7 +72,7 @@
     .guide{display:none}
     .controls{order:1;margin-top:8px}
     .controls p{display:none}
-    .buttons{display:grid;grid-template-columns:repeat(4,minmax(33px,1fr)) 1.6fr;width:100%}
+    .buttons{display:grid;grid-template-columns:repeat(4,minmax(27px,1fr)) 1.25fr 1.55fr;width:100%}
     .controls button{min-height:45px;padding:5px}
   }
 </style>
@@ -79,36 +83,39 @@
     <button class="muted-btn" id="audio" type="button" aria-pressed="false">소리 꺼짐</button>
   </header>
   <div class="layout">
-    <section class="stage" aria-label="3D 드론 비행 화면">
-      <canvas id="view" aria-label="협곡 비행과 공중 게이트"></canvas>
+    <section class="stage" id="stage" aria-label="3D 전투기 비행 화면">
+      <canvas id="view" aria-label="전투기와 협곡 게이트"></canvas>
+      <div id="burst" aria-hidden="true"></div>
       <div class="feedback" id="feedback" role="status" hidden></div>
       <div class="overlay" id="overlay" data-mode="ready">
-        <p class="eyebrow" id="tag">협곡 비행 · 게이트 12개</p>
-        <h1 id="title">스카이<span>서킷</span></h1>
-        <p class="detail" id="detail">드론을 상하좌우로 움직여 빛나는 게이트를 통과하세요. 세 번 놓치면 비행이 종료됩니다.</p>
+        <p class="eyebrow" id="tag">3D 협곡 비행 · 하드코어</p>
+        <h1 id="title">스카이 서킷<span>애프터버너</span></h1>
+        <p class="detail" id="detail">전투기로 좁은 게이트 16개를 통과하세요. 한 번 놓치면 비행이 끝납니다.</p>
         <button class="start" type="button" id="start">비행 시작 ↗</button>
       </div>
     </section>
     <aside aria-label="비행 기록">
       <section class="card telemetry">
         <h2>비행 기록</h2>
-        <div class="gate-count" id="passes">00/12</div>
+        <div class="gate-count" id="passes">00/16</div>
         <div class="meter" aria-hidden="true"><i id="progress"></i></div>
         <div class="row"><span>현재 점수</span><b id="score">0</b></div>
         <div class="row"><span>최고 점수</span><b id="record">0</b></div>
-        <div class="row"><span>남은 기회</span><b class="health" id="health" aria-label="3회"><i></i><i></i><i></i></b></div>
+        <div class="row"><span>속도</span><b id="speed">403 km/h</b></div>
+        <div class="row"><span>비행 시간</span><b id="time">0.0초</b></div>
         <div class="row"><span>다음 게이트</span><b id="range">—</b></div>
       </section>
-      <section class="card guide"><h2>조종 팁</h2><p>게이트 중심에 가깝게 통과하면 추가 점수를 얻습니다. 초록색 링이 지금 통과할 게이트입니다.</p></section>
+      <section class="card guide"><h2>조종 팁</h2><p>주황색 링이 다음 목표입니다. 파란색 링을 미리 보고 다음 방향을 잡으세요. Shift를 누르고 있으면 가속합니다.</p></section>
     </aside>
   </div>
   <div class="controls">
-    <p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> 또는 방향키로 이동 · <kbd>P</kbd> 일시 정지</p>
+    <p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> 또는 방향키로 이동 · <kbd>Shift</kbd> 가속 · <kbd>P</kbd> 일시 정지</p>
     <div class="buttons">
       <button type="button" data-dir="left" aria-label="왼쪽">←</button>
       <button type="button" data-dir="up" aria-label="위">↑</button>
       <button type="button" data-dir="down" aria-label="아래">↓</button>
       <button type="button" data-dir="right" aria-label="오른쪽">→</button>
+      <button type="button" data-dir="boost">가속</button>
       <button type="button" id="pause">일시 정지</button>
     </div>
   </div>
@@ -117,22 +124,35 @@
 'use strict';
 
 const byId = (id) => document.getElementById(id);
-const ui = Object.fromEntries(['view','overlay','tag','title','detail','start','audio','feedback','passes','progress','score','record','health','range','pause'].map(id => [id, byId(id)]));
+const ui = Object.fromEntries(['view','stage','overlay','tag','title','detail','start','audio','feedback','passes','progress','score','record','speed','time','range','pause'].map(id => [id, byId(id)]));
 const buttons = [...document.querySelectorAll('[data-dir]')];
-const layout = [[0,0],[-5,2],[-8,-1],[0,-3],[7,1],[9,4],[3,5],[-5,0],[-10,-3],[-5,3],[4,1],[10,4]];
-const gates = layout.map(([x,y], i) => ({x,y,z:100 + i * 96, radius:i < 2 ? 5.2 : 4.65}));
-const storageKey = 'sky-circuit-record-v1';
+const course = [
+  [0, 0, 190, 5.0], [-10, 5, 145, 4.4], [10, -3, 155, 4.0], [14, 6, 141, 3.9],
+  [-8, 5, 146, 3.8], [-14, -5, 139, 3.7], [9, 1, 151, 3.7], [14, 8, 136, 3.6],
+  [-11, 0, 145, 3.6], [-14, -6, 139, 3.5], [8, 5, 145, 3.5], [14, -3, 135, 3.4],
+  [-11, 6, 146, 3.4], [-13, -5, 138, 3.3], [12, 4, 149, 3.2], [-12, 7, 146, 3.1]
+];
+let courseEnd = 0;
+const gates = course.map(([x,y,gap,radius]) => {
+  courseEnd += gap;
+  return {x,y,z:courseEnd,radius};
+});
+const cruiseSpeed = 112;
+const boostSpeed = 67;
+const storageKey = 'sky-circuit-afterburner-record';
 const clamp = (v, lo, hi) => Math.max(lo,Math.min(hi,v));
 const record = () => {
   try { return Math.max(0, Number(localStorage.getItem(storageKey)) || 0); }
   catch { return 0; }
 };
-const state = {mode:'ready',x:0,y:0,z:0,vx:0,vy:0,clock:0,index:0,passes:0,score:0,lives:3,streak:0,best:record(),noteUntil:0};
+const state = {mode:'ready',x:0,y:0,z:0,vx:0,vy:0,clock:0,speed:cruiseSpeed,boosting:false,index:0,passes:0,score:0,streak:0,best:record(),noteUntil:0};
 const keys = new Set();
 const pointerDirections = new Map();
 let scene;
 let audio;
 let sound = false;
+byId('burst').innerHTML = [8,16,25,39,54,69,111,126,141,155,164,172,198,218,328,343]
+  .map((angle,index) => '<i style="--angle:'+angle+'deg;--delay:-'+index*.043+'s"></i>').join('');
 
 function playNote(frequency, duration, volume, endFrequency = frequency) {
   if (!sound || audio?.state !== 'running') return;
@@ -155,7 +175,7 @@ function begin() {
     mode('running');
     return;
   }
-  Object.assign(state,{x:0,y:0,z:0,vx:0,vy:0,clock:0,index:0,passes:0,score:0,lives:3,streak:0,noteUntil:0});
+  Object.assign(state,{x:0,y:0,z:0,vx:0,vy:0,clock:0,speed:cruiseSpeed,boosting:false,index:0,passes:0,score:0,streak:0,noteUntil:0});
   ui.feedback.hidden = true;
   mode('running');
   playNote(290,.26,.07,505);
@@ -165,6 +185,8 @@ function mode(next) {
   state.mode = next;
   const running = next === 'running';
   ui.overlay.hidden = running;
+  ui.stage.dataset.flight = next;
+  ui.stage.dataset.boost = String(running && state.boosting);
   ui.overlay.dataset.mode = next;
   ui.pause.disabled = !running && next !== 'paused';
   ui.pause.textContent = next === 'paused' ? '계속' : '일시 정지';
@@ -183,9 +205,9 @@ function mode(next) {
     ui.detail.textContent = '준비되면 남은 게이트를 향해 다시 날아가세요.';
     ui.start.textContent = '비행 계속';
   } else if (next === 'done' || next === 'crashed') {
-    ui.tag.textContent = next === 'done' ? '협곡 코스 종료' : '남은 기회 0회';
+    ui.tag.textContent = next === 'done' ? '협곡 코스 완료' : '게이트 통과 실패';
     ui.title.textContent = next === 'done' ? '비행 완료' : '비행 종료';
-    ui.detail.textContent = '게이트 ' + state.passes + '/' + gates.length + ' 통과 · ' + state.score.toLocaleString('ko-KR') + '점';
+    ui.detail.textContent = state.passes + '/' + gates.length + '개 통과 · ' + state.clock.toFixed(1) + '초 · ' + state.score.toLocaleString('ko-KR') + '점';
     ui.start.textContent = '다시 비행';
   }
   if (!running && next !== 'ready') ui.start.focus({preventScroll:true});
@@ -197,22 +219,21 @@ function updateHud() {
   ui.progress.style.width = 100 * state.index / gates.length + '%';
   ui.score.textContent = state.score.toLocaleString('ko-KR');
   ui.record.textContent = state.best.toLocaleString('ko-KR');
-  ui.health.setAttribute('aria-label',state.lives + '회');
-  for (let i=0;i<3;i++) ui.health.children[i].classList.toggle('off',i >= state.lives);
+  ui.speed.textContent = Math.round(state.speed*3.6) + ' km/h';
+  ui.time.textContent = state.clock.toFixed(1) + '초';
   const gate = gates[state.index];
   ui.range.textContent = gate ? Math.max(0,Math.ceil(gate.z - state.z)) + ' m' : '—';
 }
 
-function setFeedback(text, miss = false) {
+function setFeedback(text) {
   ui.feedback.textContent = text;
-  ui.feedback.classList.toggle('miss',miss);
   ui.feedback.hidden = false;
   state.noteUntil = state.clock + .95;
 }
 
-function resolveGate(gate) {
-  const error = Math.hypot(state.x - gate.x,state.y - gate.y) / gate.radius;
-  if (error <= .91) {
+function resolveGate(gate,x,y) {
+  const error = Math.hypot(x - gate.x,y - gate.y) / gate.radius;
+  if (error <= .95) {
     state.passes++;
     state.streak++;
     const centered = error <= .42;
@@ -224,13 +245,12 @@ function resolveGate(gate) {
       state.best = state.score;
       try { localStorage.setItem(storageKey,String(state.best)); } catch {}
     }
+    state.index++;
+    if (state.index === gates.length) mode('done');
   } else {
-    state.lives--;
-    state.streak = 0;
-    setFeedback('게이트 놓침 · 기회 −1',true);
     playNote(180,.29,.11,75);
+    mode('crashed');
   }
-  state.index++;
 }
 
 function step(dt) {
@@ -238,19 +258,27 @@ function step(dt) {
   const held = new Set([...keys,...pointerDirections.values()]);
   const dx = Number(held.has('right')) - Number(held.has('left'));
   const dy = Number(held.has('up')) - Number(held.has('down'));
-  const easing = Math.min(1,dt*10);
-  state.vx += (dx * 14 - state.vx) * easing;
-  state.vy += (dy * 11 - state.vy) * easing;
-  state.x = clamp(state.x + state.vx * dt,-16.5,16.5);
-  state.y = clamp(state.y + state.vy * dt,-7,9);
-  state.z += dt * (38 + .9 * state.index);
-  if (state.noteUntil <= state.clock) ui.feedback.hidden = true;
-  if (state.z >= gates[state.index]?.z) {
-    resolveGate(gates[state.index]);
-    if (!state.lives) { mode('crashed'); return; }
-    if (state.index === gates.length) { mode('done'); return; }
+  const boosting = held.has('boost');
+  if (boosting && !state.boosting) playNote(135,.42,.065,440);
+  if (boosting !== state.boosting) {
+    state.boosting = boosting;
+    ui.stage.dataset.boost = String(boosting);
   }
-  updateHud();
+  const targetSpeed = cruiseSpeed + state.index*3.45 + (boosting ? boostSpeed : 0);
+  state.speed += (targetSpeed-state.speed)*Math.min(1,dt*7);
+  const previousX=state.x, previousY=state.y, previousZ=state.z;
+  const easing = Math.min(1,dt*12);
+  state.vx += (dx * 41 - state.vx) * easing;
+  state.vy += (dy * 27 - state.vy) * easing;
+  state.x = clamp(state.x + state.vx * dt,-18,18);
+  state.y = clamp(state.y + state.vy * dt,-9,11);
+  state.z += dt * state.speed;
+  if (state.noteUntil <= state.clock) ui.feedback.hidden = true;
+  const gate = gates[state.index];
+  if (state.z >= gate.z) {
+    const fraction = (gate.z-previousZ)/(state.z-previousZ);
+    resolveGate(gate,previousX+(state.x-previousX)*fraction,previousY+(state.y-previousY)*fraction);
+  }
 }
 
 function togglePause() {
@@ -258,7 +286,7 @@ function togglePause() {
   else if (state.mode === 'paused') mode('running');
 }
 
-const directionKey = {w:'up',a:'left',s:'down',d:'right',arrowup:'up',arrowleft:'left',arrowdown:'down',arrowright:'right'};
+const directionKey = {w:'up',a:'left',s:'down',d:'right',arrowup:'up',arrowleft:'left',arrowdown:'down',arrowright:'right',shift:'boost'};
 window.addEventListener('keydown',event => {
   if (event.ctrlKey || event.altKey || event.metaKey) return;
   const key = event.key.toLowerCase();
@@ -526,7 +554,6 @@ function buildScene(canvas) {
     }
   };
   const rectangle = (x,y,z,hx,hz) => [[x-hx,y,z-hz],[x+hx,y,z-hz],[x+hx,y,z+hz],[x-hx,y,z+hz]];
-  const box = (target,x,y,z,hx,hy,hz,color) => prism(target,rectangle(x,y-hy,z,hx,hz),rectangle(x,y+hy,z,hx,hz),color);
 
   const columns = [-155,-112,-82,-60,-46,-34,-24,-16,-9,0,9,16,24,34,46,60,82,112,155];
   const shelf = [53,41,44,24,16,4,-5,-11,-12,-12,-12,-11,-5,4,16,24,44,41,53];
@@ -537,7 +564,7 @@ function buildScene(canvas) {
     const y = shelf[i]+edge*(5*Math.sin(z*.036+i*1.61)+7*Math.cos(z*.019+i*2.2));
     return [x+bend,y,z];
   };
-  for (let z=-38;z<1510;z+=14) {
+  for (let z=-38;z<courseEnd+440;z+=14) {
     const water = [.26+.025*Math.cos(z*.2),.48+.016*Math.sin(z*.18),.47];
     quad(land,[-29,-11.2,z],[29,-11.2,z],[29,-11.2,z+14],[-29,-11.2,z+14],water);
     for (let i=0;i<columns.length-1;i++) {
@@ -549,7 +576,7 @@ function buildScene(canvas) {
       triangle(land,a,c,d,base.map(v=>v*shade*.92));
     }
   }
-  for (let i=0;i<165;i++) {
+  for (let i=0;21+i*8.2<courseEnd+400;i++) {
     const z=21+i*8.2, side=i%2 ? -1 : 1, j=side>0 ? 12+i%3 : 6-i%3;
     const [x,y]=terrain(j,z);
     const height=2.2+(i*17%23)*.13;
@@ -559,7 +586,7 @@ function buildScene(canvas) {
     const top=[x,y+height,z];
     for (let k=0;k<4;k++) triangle(land,bottom[k],bottom[(k+1)%4],top,color.map(v=>v*(.82+k*.07)));
   }
-  for (let z=6;z<1390;z+=21) {
+  for (let z=6;z<courseEnd+380;z+=21) {
     const x=4*Math.sin(z*.27);
     quad(land,[x-2,-11.15,z],[x+5,-11.15,z],[x+6,-11.15,z+.5],[x-1,-11.15,z+.5],[.46,.66,.58]);
   }
@@ -567,7 +594,7 @@ function buildScene(canvas) {
   renderer.prepare(land);
 
   function ring(gate,isTarget) {
-    const color = isTarget ? [.76,1,.41] : [.59,.82,.77];
+    const color = isTarget ? [1,.70,.25] : [.43,.76,1];
     const outer = gate.radius + (isTarget ? .42 : .27);
     const point = (angle,r,z) => [gate.x + Math.cos(angle)*r,gate.y + Math.sin(angle)*r,z];
     for (let i=0;i<48;i++) {
@@ -583,37 +610,47 @@ function buildScene(canvas) {
     if (!isTarget) return;
     for (const x of [-1,1]) {
       const z=gate.z-.45;
-      triangle(objects,[gate.x+x*(outer+2),gate.y-.6,z],[gate.x+x*(outer+2),gate.y+.6,z],[gate.x+x*(outer+.8),gate.y,z],[.94,1,.76]);
+      triangle(objects,[gate.x+x*(outer+2),gate.y-.6,z],[gate.x+x*(outer+2),gate.y+.6,z],[gate.x+x*(outer+.8),gate.y,z],[1,.9,.64]);
     }
   }
 
-  function drone(time) {
-    const tilt = state.vx * .027;
-    const cosine = Math.cos(tilt), sine = Math.sin(tilt);
-    const cockpitY = state.y + Math.sin(time*5)*.10;
-    const transform = ([x,y,z]) => [state.x+x*cosine+y*sine,cockpitY+y*cosine-x*sine,state.z+z];
-    const part = (x,y,z,hx,hy,hz,hue) => {
-      const lo=rectangle(x,y-hy,z,hx,hz).map(transform);
-      const hi=rectangle(x,y+hy,z,hx,hz).map(transform);
-      prism(objects,lo,hi,hue);
+  function jet(time) {
+    const bank = state.vx*.012;
+    const pitch = state.vy*.009;
+    const cosine = Math.cos(bank), sine = Math.sin(bank);
+    const pitchCos = Math.cos(pitch), pitchSin = Math.sin(pitch);
+    const height = state.y + Math.sin(time*5)*.065;
+    const transform = ([x,y,z]) => {
+      const rolledY=y*cosine-x*sine;
+      return [state.x+x*cosine+y*sine,height+rolledY*pitchCos+z*pitchSin,state.z+z*pitchCos-rolledY*pitchSin];
     };
-    part(0,0,0,1.02,.23,1.06,[.82,.91,.74]);
-    part(0,.30,.05,.56,.15,.66,[.17,.32,.29]);
-    part(0,.02,-1.08,.67,.09,.08,[.86,1,.35]);
-    for (const side of [-1,1]) {
-      part(side*1.1,-.05,.06,.68,.08,.54,[.38,.53,.44]);
-      for (const front of [-1,1]) {
-        const x=side*1.79,z=front*.80;
-        part(x,.04,z,.22,.14,.23,[.21,.32,.29]);
-        const spin=time*22*(side*front)+side;
-        for (let blade=0;blade<2;blade++) {
-          const angle=spin+blade*Math.PI/2;
-          const center=[x,.23,z];
-          const arc = (a,r) => transform([x+Math.cos(a)*r,center[1],z+Math.sin(a)*r]);
-          quad(objects,arc(angle-.12,.84),arc(angle+.12,.84),arc(angle+Math.PI-.12,.84),arc(angle+Math.PI+.12,.84),[.74,.91,.72]);
-        }
-      }
+
+    function facet(points,color) {
+      const corners=points.map(transform);
+      for (let i=1;i<corners.length-1;i++) triangle(objects,corners[0],corners[i],corners[i+1],color);
     }
+
+    const dorsal = [[0,.30,3.1],[-.67,.43,.98],[-.81,.28,-2],[.81,.28,-2],[.67,.43,.98]];
+    facet(dorsal,[.68,.75,.84]);
+    facet([dorsal[0],dorsal[1],dorsal[2],[-.70,-.20,-2],[0,-.15,2.2]],[.39,.47,.60]);
+    facet([dorsal[0],dorsal[4],dorsal[3],[.70,-.20,-2],[0,-.15,2.2]],[.33,.42,.55]);
+    facet([[-.81,.28,-2],[.81,.28,-2],[.70,-.20,-2],[-.70,-.20,-2]],[.17,.25,.34]);
+
+    for (const side of [-1,1]) {
+      const mirrored = (points,color) => facet(points.map(([x,y,z])=>[side*x,y,z]),color);
+      mirrored([[.48,.22,.90],[1.22,.13,.40],[3.47,.02,-1.48],[2.68,.04,-1.70],[.80,.18,-1.54]],[.55,.65,.78]);
+      mirrored([[.82,.17,-1.56],[2.68,.04,-1.70],[3.47,.02,-1.48],[2.60,-.03,-1.82]],[.31,.44,.58]);
+      mirrored([[2.33,.069,-1.31],[2.46,.064,-1.22],[2.73,.058,-1.44],[2.62,.055,-1.53]],[.96,.71,.32]);
+      mirrored([[.50,.20,-1.04],[.71,1.24,-1.68],[1.04,1.15,-2.10],[.85,.19,-2.10]],[.72,.79,.88]);
+      mirrored([[.56,.17,-1.48],[1.95,.10,-2.02],[1.53,.08,-2.42],[.43,.11,-2.29]],[.44,.56,.71]);
+      mirrored([[.10,-.13,-2.01],[.57,-.13,-2.01],[.57,.14,-2.01],[.10,.14,-2.01]],[.99,.68,.30]);
+      const flame = (state.boosting ? 2.85 : .95)+Math.sin(time*37)*.23;
+      mirrored([[.12,-.08,-2.03],[.54,-.08,-2.03],[.32,-.02,-2.2-flame]],[1,.53,.17]);
+      mirrored([[.22,-.04,-2.04],[.44,-.04,-2.04],[.33,-.015,-2.15-flame*.64]],[.99,.89,.54]);
+    }
+
+    facet([[0,.45,1.95],[-.37,.52,.86],[-.23,.47,.33],[.23,.47,.33],[.37,.52,.86]],[.18,.36,.54]);
+    facet([[0,.51,1.70],[-.22,.56,.85],[-.07,.53,.54],[.08,.55,.78]],[.52,.75,.90]);
   }
 
   return {
@@ -627,13 +664,13 @@ function buildScene(canvas) {
       }
       objects.length=0;
       if (state.mode === 'ready') {
-        ring({x:7,y:1.8,z:42,radius:5.7},true);
+        ring({x:9,y:2,z:48,radius:6.1},true);
         ring(gates[1],false);
         ring(gates[2],false);
       } else {
         for (let i=state.index;i<Math.min(state.index+5,gates.length);i++) ring(gates[i],i===state.index);
       }
-      drone(time);
+      jet(time);
       const scale=1.63;
       renderer.render(objects,{
         width,height,scaleX:Math.min(1.39,scale*height/width),scaleY:scale,
@@ -670,6 +707,7 @@ if (scene) {
     if (moving) frameTime+=dt;
     if (state.mode!==lastMode || now-lastDraw>=1000/30) {
       scene.render(frameTime);
+      if (state.mode==='running') updateHud();
       lastDraw=now;
       lastMode=state.mode;
     }
